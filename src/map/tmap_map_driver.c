@@ -814,7 +814,7 @@ tmap_map_driver_core(tmap_map_driver_t *driver)
   io_in = tmap_seqs_io_init(driver->opt->fn_reads, driver->opt->fn_reads_num, seq_type, driver->opt->input_compr);
 
   // get the index
-  index = tmap_index_init(driver->opt->fn_fasta, driver->opt->shm_key);
+  index = tmap_index_init(driver->opt->fn_fasta, driver->opt->shm_key, driver->opt->mm);
 
   // initialize the driver->options and print any relevant information
   tmap_map_driver_do_init(driver, index->refseq);

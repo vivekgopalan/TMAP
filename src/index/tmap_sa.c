@@ -58,6 +58,7 @@ tmap_sa_read(const char *fn_fasta)
   free(fn_sa);
 
   sa->is_shm = 0;
+  sa->is_mm  = 0;
 
   return sa;
 }
@@ -139,6 +140,7 @@ tmap_sa_shm_read_num_bytes(const char *fn_fasta)
   free(fn_sa);
 
   sa->is_shm = 0;
+  sa->is_mm  = 0;
 
   // get the number of bytes
   n = tmap_sa_shm_num_bytes(sa);
@@ -183,6 +185,33 @@ tmap_sa_shm_unpack(uint8_t *buf)
   sa->sa_intv_log2 = tmap_log2(sa->sa_intv);
 
   sa->is_shm = 1;
+  sa->is_mm  = 0;
+
+  return sa;
+}
+
+tmap_sa_t *
+tmap_sa_mm_unpack(uint8_t *buf)
+{
+  tmap_sa_t *sa = NULL;
+
+  if(NULL == buf) return NULL;
+
+  sa = tmap_calloc(1, sizeof(tmap_sa_t), "sa");
+
+  // fixed length data
+  memcpy(&sa->primary, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&sa->sa_intv, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&sa->seq_len, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&sa->n_sa, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  // variable length data
+  sa->sa = (tmap_bwt_int_t*)buf;
+  buf += sa->n_sa*sizeof(tmap_bwt_int_t);
+
+  sa->sa_intv_log2 = tmap_log2(sa->sa_intv);
+
+  sa->is_shm = 0;
+  sa->is_mm  = 1;
 
   return sa;
 }

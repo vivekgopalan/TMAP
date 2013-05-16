@@ -72,6 +72,7 @@ typedef struct {
     int32_t num_annos;  /*!< the number of contigs (and annotations) */
     uint64_t len;  /*!< the total length of the reference sequence */
     uint32_t is_shm;  /*!< 1 if loaded from shared memory, 0 otherwise */
+    uint32_t is_mm;  /*!< 1 if loaded from shared memory, 0 otherwise */
 } tmap_refseq_t;
 
 /*!

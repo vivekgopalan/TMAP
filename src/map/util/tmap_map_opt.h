@@ -199,6 +199,7 @@ typedef struct __tmap_map_opt_t {
     int32_t output_type;  /*!< the output type (0 - SAM, 1 - BAM (compressed), 2 - BAM (uncompressed)) (-o,--output-type) */
     int32_t end_repair; /*!< specifies to perform 5' end repair (0 - disabled, 1 - prefer mismatches, 2 - prefer indels) (--end-repair) */
     int32_t max_adapter_bases_for_soft_clipping; /*!< specifies to perform 3' soft-clipping (via -g) if at most this # of adapter bases were found (ZB tag) (--max-adapter-bases-for-soft-clipping) */ 
+    int32_t mm; /*!< Enable memory mapped IO */
     key_t shm_key;  /*!< the shared memory key (-k,--shared-memory-key) */
 #ifdef ENABLE_TMAP_DEBUG_FUNCTIONS
     double sample_reads;  /*!< sample the reads at this fraction (-x,--sample-reads) */

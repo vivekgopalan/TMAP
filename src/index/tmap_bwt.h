@@ -74,6 +74,7 @@ typedef struct {
     tmap_bwt_int_t **hash_l;  /*!< hash of the BWT occurrence array (upper bounds) */
     int32_t hash_width;  /*!< the k-mer that is hashed */
     uint32_t is_shm;  /*!< 1 if loaded from shared memory, 0 otherwise */
+    uint32_t is_mm;  /*!< 1 if loaded from memory map, 0 otherwise */
     // Not stored in the file
     uint32_t occ_interval_log2; /*!< log2 value of of the the occurrence array interval */
     uint32_t occ_array_16_pt2; /*!< equal to ((bwt)->occ_interval/(sizeof(uint32_t)<<3>>1) + (sizeof(tmap_bwt_int_t)>>2<<2))) */

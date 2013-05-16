@@ -114,6 +114,7 @@ tmap_bwt_read(const char *fn_fasta)
   free(fn_bwt);
 
   bwt->is_shm = 0;
+  bwt->is_mm  = 0;
 
   tmap_bwt_update_optimizations(bwt);
 
@@ -257,6 +258,7 @@ tmap_bwt_shm_read_num_bytes(const char *fn_fasta)
   free(fn_bwt);
 
   bwt->is_shm = 0;
+  bwt->is_mm  = 0;
 
   // get the number of bytes
   n = tmap_bwt_shm_num_bytes(bwt);
@@ -287,6 +289,45 @@ tmap_bwt_shm_pack(tmap_bwt_t *bwt, uint8_t *buf)
       memcpy(buf, bwt->hash_l[i-1], hash_length*sizeof(tmap_bwt_int_t)); buf += hash_length*sizeof(tmap_bwt_int_t);
   }
   return buf;
+}
+
+tmap_bwt_t *
+tmap_bwt_mm_unpack(uint8_t *buf)
+{
+  tmap_bwt_t *bwt = NULL;
+  uint32_t i;
+
+  if(NULL == buf) return NULL;
+
+  bwt = tmap_calloc(1, sizeof(tmap_bwt_t), "bwt");
+
+  // fixed length data
+  memcpy(&bwt->version_id, buf, sizeof(uint32_t)); buf += sizeof(uint32_t);
+  memcpy(&bwt->primary, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(bwt->L2, buf, 5*sizeof(tmap_bwt_int_t)); buf += 5*sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->seq_len, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->bwt_size, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->occ_interval, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(bwt->cnt_table, buf, 256*sizeof(uint32_t)); buf += 256*sizeof(uint32_t);
+  memcpy(&bwt->hash_width, buf, sizeof(int32_t)); buf += sizeof(uint32_t);
+
+  // allocate memory
+  bwt->hash_k = tmap_calloc(bwt->hash_width, sizeof(tmap_bwt_int_t*), "bwt->hash_k");
+  bwt->hash_l = tmap_calloc(bwt->hash_width, sizeof(tmap_bwt_int_t*), "bwt->hash_l");
+
+  // variable length data
+  bwt->bwt = (uint32_t*)buf; buf += bwt->bwt_size*sizeof(uint32_t);
+  for(i=1;i<=bwt->hash_width;i++) {
+      uint64_t hash_length = tmap_bwt_get_hash_length(i);
+      bwt->hash_k[i-1] = (tmap_bwt_int_t*)buf; buf += hash_length*sizeof(tmap_bwt_int_t);
+      bwt->hash_l[i-1] = (tmap_bwt_int_t*)buf; buf += hash_length*sizeof(tmap_bwt_int_t);
+  }
+
+  bwt->is_mm = 1;
+
+  tmap_bwt_update_optimizations(bwt);
+
+  return bwt;
 }
 
 tmap_bwt_t *

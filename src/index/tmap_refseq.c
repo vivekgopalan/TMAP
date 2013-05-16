@@ -6,6 +6,10 @@
 #include <config.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "../util/tmap_error.h"
 #include "../util/tmap_alloc.h"
 #include "../util/tmap_string.h"
@@ -188,6 +192,7 @@ tmap_refseq_fasta2pac(const char *fn_fasta, int32_t compression, int32_t fwd_onl
   refseq->num_annos = 0;
   refseq->len = 0;
   refseq->is_shm = 0;
+  refseq->is_mm = 0;
   memset(buffer, 0, TMAP_REFSEQ_BUFFER_SIZE);
   buffer_length = 0;
 
@@ -537,6 +542,7 @@ tmap_refseq_read(const char *fn_fasta)
   // allocate some memory 
   refseq = tmap_calloc(1, sizeof(tmap_refseq_t), "refseq");
   refseq->is_shm = 0;
+  refseq->is_mm = 0;
 
   // read annotation file
   fn_anno = tmap_get_file_name(fn_fasta, TMAP_ANNO_FILE);
@@ -625,6 +631,7 @@ tmap_refseq_shm_read_num_bytes(const char *fn_fasta)
   // allocate some memory 
   refseq = tmap_calloc(1, sizeof(tmap_refseq_t), "refseq");
   refseq->is_shm = 0;
+  refseq->is_mm  = 0;
 
   // read the annotation file
   fn_anno = tmap_get_file_name(fn_fasta, TMAP_ANNO_FILE);
@@ -741,9 +748,107 @@ tmap_refseq_shm_unpack(uint8_t *buf)
   }
 
   refseq->is_shm = 1;
+  refseq->is_mm = 0;
 
   return refseq;
 }
+
+tmap_refseq_t *
+tmap_refseq_mm_read(const char *fn_fasta)
+{
+  char *buf, *buf_pac;
+  char *fn_anno = NULL, *fn_pac =NULL;
+  tmap_refseq_t *refseq = NULL;
+  int32_t i = 0;
+
+  // allocate some memory
+  refseq = tmap_calloc(1, sizeof(tmap_refseq_t), "refseq");
+  refseq->is_shm = 0;
+  refseq->is_mm = 1;
+
+  // read annotation file
+  fn_anno = tmap_get_file_name(fn_fasta, TMAP_ANNO_FILE);
+  int fd = open(fn_anno, O_RDONLY);
+  if (fd == -1)
+      tmap_error("Cannot open file", Exit, ReadFileError);
+
+  struct stat sbuf;
+  if (fstat(fd, &sbuf) == -1) {
+      tmap_error("Cannot read file stats", Exit, ReadFileError);
+  }
+  buf = (char*) mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+  if (buf == MAP_FAILED)
+      tmap_error("Cannot map file to memory", Exit, ReadFileError);
+
+  // fixed length data
+  memcpy(&refseq->version_id, buf, sizeof(uint64_t)) ; buf += sizeof(uint64_t);
+  if(refseq->version_id != TMAP_VERSION_ID) {
+      tmap_error("version id did not match", Exit, ReadFileError);
+  }
+
+  refseq->package_version = tmap_string_init(0);
+  memcpy(&refseq->package_version->l, buf, sizeof(size_t)); buf += sizeof(size_t);
+
+  // variable length data
+  refseq->package_version->m = refseq->package_version->l+1;
+  refseq->package_version->s = (char*)buf;
+  buf += sizeof(char)*(refseq->package_version->l+1);
+
+  memcpy(&refseq->num_annos, buf, sizeof(uint32_t)) ; buf += sizeof(uint32_t);
+  memcpy(&refseq->len, buf, sizeof(uint64_t)) ; buf += sizeof(uint64_t);
+
+  if(0 == tmap_refseq_supported(refseq)) {
+      tmap_error("the reference index is not supported", Exit, ReadFileError);
+  }
+  refseq->annos = tmap_calloc(refseq->num_annos, sizeof(tmap_anno_t), "refseq->annos");
+
+  for(i=0;i<refseq->num_annos;i++) {
+	  int32_t len = 0;
+      memcpy(&len, buf, sizeof(uint32_t)); buf += sizeof(uint32_t);
+      refseq->annos[i].name = tmap_string_init(len);
+      refseq->annos[i].name->l =len-1;
+      refseq->annos[i].name->m = len;
+      refseq->annos[i].name->s = (char*)buf;
+      buf += sizeof(char)*len;
+
+      // fixed length data
+      memcpy(&refseq->annos[i].len, buf, sizeof(uint64_t)); buf += sizeof(uint64_t);
+      memcpy(&refseq->annos[i].offset, buf, sizeof(uint64_t)); buf += sizeof(uint64_t);
+      memcpy(&refseq->annos[i].num_amb, buf, sizeof(uint32_t)); buf += sizeof(uint32_t);
+      // variable length data
+      if(0 < refseq->annos[i].num_amb) {
+          refseq->annos[i].amb_positions_start = (uint32_t*)buf;
+          buf += sizeof(uint32_t)*refseq->annos[i].num_amb;
+          refseq->annos[i].amb_positions_end = (uint32_t*)buf;
+          buf += sizeof(uint32_t)*refseq->annos[i].num_amb;
+          refseq->annos[i].amb_bases = (uint8_t*)buf;
+          buf += sizeof(uint8_t)*refseq->annos[i].num_amb;
+      }
+      else {
+          refseq->annos[i].amb_positions_start = NULL;
+          refseq->annos[i].amb_positions_end = NULL;
+          refseq->annos[i].amb_bases = NULL;
+      }
+  }
+
+  // read seq file
+  fn_pac = tmap_get_file_name(fn_fasta, TMAP_PAC_FILE);
+  int fd_pac = open(fn_anno, O_RDONLY);
+  if (fd_pac == -1)
+      tmap_error("Cannot open sequence file", Exit, ReadFileError);
+
+  struct stat sbuf_pac;
+  if (fstat(fd_pac, &sbuf_pac) == -1) {
+      tmap_error("Cannot read sequence file stats", Exit, ReadFileError);
+  }
+  buf_pac = (char*) mmap(0, sbuf_pac.st_size, PROT_READ, MAP_SHARED, fd_pac, 0);
+
+  refseq->seq = (uint8_t*)buf_pac;
+  buf_pac += tmap_refseq_seq_memory(refseq->len)*sizeof(uint8_t);
+  return refseq;
+}
+
 
 void
 tmap_refseq_destroy(tmap_refseq_t *refseq)
@@ -1004,6 +1109,7 @@ tmap_refseq_refinfo_main(int argc, char *argv[])
   // allocate some memory 
   refseq = tmap_calloc(1, sizeof(tmap_refseq_t), "refseq");
   refseq->is_shm = 0;
+  refseq->is_mm  = 0;
 
   // read the annotation file
   fn_anno = tmap_get_file_name(fn_fasta, TMAP_ANNO_FILE);

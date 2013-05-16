@@ -111,7 +111,7 @@ tmap_index_speed_core(tmap_index_speed_opt_t *opt)
   int32_t num_found;
 
   // read in the index
-  index = tmap_index_init(opt->fn_fasta, opt->shm_key);
+  index = tmap_index_init(opt->fn_fasta, opt->shm_key, 0);
 
   // modify the hash width
   if(0 <= opt->hash_width) {
