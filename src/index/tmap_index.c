@@ -24,11 +24,15 @@ tmap_index_init(const char *fn_fasta, key_t shm_key, int32_t mm)
   index->mm      = mm;
 
   // get the reference information
+  // primary 65380; sa_intv: 32
+  // seq_len = 97004
+  //n_sa = 3032, sa 67973 .. 18446744073709551615
+
   if (1 == index->mm) {
       tmap_progress_print("Retrieving reference data from memory map");
       index->refseq = tmap_refseq_mm_read(fn_fasta);
-      index->bwt = tmap_bwt_read(fn_fasta);
-      index->sa = tmap_sa_read(fn_fasta);
+      index->bwt = tmap_bwt_mm_read(fn_fasta);
+      index->sa = tmap_sa_mm_read(fn_fasta);
       tmap_progress_print2("Reference data retrieved from memory map");
   } else if(0 == index->shm_key) {
       tmap_progress_print("reading in reference data");

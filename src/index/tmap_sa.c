@@ -4,6 +4,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "../util/tmap_error.h"
 #include "../util/tmap_alloc.h"
 #include "../util/tmap_progress.h"
@@ -60,6 +64,67 @@ tmap_sa_read(const char *fn_fasta)
   sa->is_shm = 0;
   sa->is_mm  = 0;
 
+  return sa;
+}
+
+tmap_sa_t *
+tmap_sa_mm_read(const char *fn_fasta)
+{
+
+  char *buf;
+  char *fn_sa = NULL;
+
+  // allocate some memory
+  tmap_sa_t *sa = NULL;
+  sa = tmap_calloc(1, sizeof(tmap_bwt_t), "sa");
+  sa->is_shm = 0;
+  sa->is_mm = 1;
+
+  // read annotation file
+  fn_sa = tmap_get_file_name(fn_fasta, TMAP_SA_FILE);
+  int fd = open(fn_sa, O_RDONLY);
+  if (fd == -1)
+      tmap_error("Cannot open file", Exit, ReadFileError);
+
+  struct stat sbuf;
+  if (fstat(fd, &sbuf) == -1) {
+      tmap_error("Cannot read file stats", Exit, ReadFileError);
+  }
+  buf = (char*) mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+  if (buf == MAP_FAILED)
+      tmap_error("Cannot map file to memory", Exit, ReadFileError);
+  /*
+  if(1 != tmap_file_fread(&sa->primary, sizeof(tmap_bwt_int_t), 1, fp_sa)
+     || 1 != tmap_file_fread(&sa->sa_intv, sizeof(tmap_bwt_int_t), 1, fp_sa)
+     || 1 != tmap_file_fread(&sa->seq_len, sizeof(tmap_bwt_int_t), 1, fp_sa)) {
+      tmap_error(NULL, Exit, ReadFileError);
+  }
+
+  sa->n_sa = (sa->seq_len + sa->sa_intv) / sa->sa_intv;
+  sa->sa = tmap_calloc(sa->n_sa, sizeof(tmap_bwt_int_t), "sa->sa");
+  sa->sa[0] = -1;
+
+  if(sa->n_sa-1 != tmap_file_fread(sa->sa + 1, sizeof(tmap_bwt_int_t), sa->n_sa - 1, fp_sa)) {
+      tmap_error(NULL, Exit, ReadFileError);
+  }
+
+  sa->sa_intv_log2 = tmap_log2(sa->sa_intv);
+
+  */
+
+  // fixed length data
+  memcpy(&sa->primary, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&sa->sa_intv, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&sa->seq_len, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  sa->n_sa = (sa->seq_len + sa->sa_intv) / sa->sa_intv;
+
+  sa->sa = tmap_calloc(sa->n_sa, sizeof(tmap_bwt_int_t), "sa->sa");
+  sa->sa[0] = -1;
+  memcpy(sa->sa+1, buf, sizeof(tmap_bwt_int_t)*sa->n_sa -1 );
+  sa->sa_intv_log2 = tmap_log2(sa->sa_intv);
+
+  free(fn_sa);
   return sa;
 }
 
@@ -186,32 +251,6 @@ tmap_sa_shm_unpack(uint8_t *buf)
 
   sa->is_shm = 1;
   sa->is_mm  = 0;
-
-  return sa;
-}
-
-tmap_sa_t *
-tmap_sa_mm_unpack(uint8_t *buf)
-{
-  tmap_sa_t *sa = NULL;
-
-  if(NULL == buf) return NULL;
-
-  sa = tmap_calloc(1, sizeof(tmap_sa_t), "sa");
-
-  // fixed length data
-  memcpy(&sa->primary, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
-  memcpy(&sa->sa_intv, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
-  memcpy(&sa->seq_len, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
-  memcpy(&sa->n_sa, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
-  // variable length data
-  sa->sa = (tmap_bwt_int_t*)buf;
-  buf += sa->n_sa*sizeof(tmap_bwt_int_t);
-
-  sa->sa_intv_log2 = tmap_log2(sa->sa_intv);
-
-  sa->is_shm = 0;
-  sa->is_mm  = 1;
 
   return sa;
 }

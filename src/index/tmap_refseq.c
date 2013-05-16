@@ -855,7 +855,7 @@ tmap_refseq_destroy(tmap_refseq_t *refseq)
 {
   int32_t i;
 
-  if(1 == refseq->is_shm) {
+  if(1 == refseq->is_shm || 1 == refseq->is_mm) {
       free(refseq->package_version);
       for(i=0;i<refseq->num_annos;i++) {
           free(refseq->annos[i].name);

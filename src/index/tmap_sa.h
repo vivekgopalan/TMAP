@@ -36,6 +36,13 @@ tmap_sa_read(const char *fn_fasta);
 
 /*! 
   @param  fn_fasta  the FASTA file name
+  @return           pointer to the sa structure
+  */
+tmap_sa_t *
+tmap_sa_mm_read(const char *fn_fasta);
+
+/*!
+  @param  fn_fasta  the FASTA file name
   @param  sa        the sa structure to write
   */
 void

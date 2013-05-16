@@ -113,6 +113,14 @@ tmap_refseq_t *
 tmap_refseq_read(const char *fn_fasta);
 
 /*! 
+  @param  fn_fasta  the fn_fasta of the file to be read, from the memory map
+  @return           a pointer to the initialized memory
+  */
+tmap_refseq_t *
+tmap_refseq_mm_read(const char *fn_fasta);
+
+
+/*!
   @param  len  the refseq length
   @return      the approximate number of bytes required for this refseq in shared memory
   */

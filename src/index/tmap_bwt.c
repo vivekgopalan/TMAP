@@ -31,6 +31,10 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "../util/tmap_error.h"
 #include "../util/tmap_alloc.h"
 #include "../util/tmap_progress.h"
@@ -292,6 +296,111 @@ tmap_bwt_shm_pack(tmap_bwt_t *bwt, uint8_t *buf)
 }
 
 tmap_bwt_t *
+tmap_bwt_mm_read(const char *fn_fasta)
+{
+
+  char *buf;
+  char *fn_bwt = NULL;
+  int32_t i = 0;
+
+  // allocate some memory
+  tmap_bwt_t *bwt = NULL;
+  bwt = tmap_calloc(1, sizeof(tmap_bwt_t), "bwt");
+  bwt->is_shm = 0;
+  bwt->is_mm = 1;
+
+  // read annotation file
+  fn_bwt= tmap_get_file_name(fn_fasta, TMAP_BWT_FILE);
+  int fd = open(fn_bwt, O_RDONLY);
+  if (fd == -1)
+      tmap_error("Cannot open file", Exit, ReadFileError);
+
+  struct stat sbuf;
+  if (fstat(fd, &sbuf) == -1) {
+      tmap_error("Cannot read file stats", Exit, ReadFileError);
+  }
+  buf = (char*) mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+  if (buf == MAP_FAILED)
+      tmap_error("Cannot map file to memory", Exit, ReadFileError);
+
+  /*
+  if(1 != tmap_file_fread(&bwt->version_id, sizeof(uint32_t), 1, fp_bwt)
+     || 1 != tmap_file_fread(&bwt->bwt_size, sizeof(tmap_bwt_int_t), 1, fp_bwt)) {
+      tmap_error(NULL, Exit, ReadFileError);
+  }
+
+
+  bwt->bwt = tmap_calloc(bwt->bwt_size, sizeof(tmap_bwt_int_t), "bwt->bwt");
+
+  if(1 != tmap_file_fread(&bwt->hash_width, sizeof(int32_t), 1, fp_bwt)
+     || 1 != tmap_file_fread(&bwt->primary, sizeof(tmap_bwt_int_t), 1, fp_bwt)
+     || 4 != tmap_file_fread(bwt->L2+1, sizeof(tmap_bwt_int_t), 4, fp_bwt)
+     || 1 != tmap_file_fread(&bwt->occ_interval, sizeof(tmap_bwt_int_t), 1, fp_bwt)
+     || 1 != tmap_file_fread(&bwt->seq_len, sizeof(tmap_bwt_int_t), 1, fp_bwt)
+     || bwt->bwt_size != tmap_file_fread(bwt->bwt, sizeof(uint32_t), bwt->bwt_size, fp_bwt)) {
+      tmap_error(NULL, Exit, ReadFileError);
+  }
+  if(0 != (bwt->occ_interval % 2)) {
+      tmap_error("BWT interval not supported", Exit, OutOfRange);
+  }
+  if(0 < bwt->hash_width) {
+      uint32_t i;
+      bwt->hash_k = tmap_malloc(bwt->hash_width*sizeof(tmap_bwt_int_t*), "bwt->hash_k");
+      bwt->hash_l = tmap_malloc(bwt->hash_width*sizeof(tmap_bwt_int_t*), "bwt->hash_l");
+      for(i=1;i<=bwt->hash_width;i++) {
+          uint64_t hash_length = tmap_bwt_get_hash_length(i);
+          bwt->hash_k[i-1] = tmap_malloc(hash_length*sizeof(tmap_bwt_int_t), "bwt->hash_k[i-1]");
+          bwt->hash_l[i-1] = tmap_malloc(hash_length*sizeof(tmap_bwt_int_t), "bwt->hash_l[i-1]");
+          if(hash_length != tmap_file_fread(bwt->hash_k[i-1], sizeof(tmap_bwt_int_t), hash_length, fp_bwt)
+             || hash_length != tmap_file_fread(bwt->hash_l[i-1], sizeof(tmap_bwt_int_t), hash_length, fp_bwt)) {
+              tmap_error(NULL, Exit, ReadFileError);
+          }
+      }
+  }
+  else {
+      bwt->hash_k = bwt->hash_l = NULL;
+  }
+
+  tmap_bwt_gen_cnt_table(bwt);
+
+*/
+  // fixed length data
+  memcpy(&bwt->version_id, buf, sizeof(uint32_t)); buf += sizeof(uint32_t);
+  if(bwt->version_id != TMAP_VERSION_ID) {
+      tmap_error("version id did not match", Exit, ReadFileError);
+  }
+  memcpy(&bwt->bwt_size, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->hash_width, buf, sizeof(int32_t)); buf += sizeof(uint32_t);
+  memcpy(&bwt->primary, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(bwt->L2+1, buf, 4*sizeof(tmap_bwt_int_t)); buf += 4*sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->occ_interval, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  memcpy(&bwt->seq_len, buf, sizeof(tmap_bwt_int_t)); buf += sizeof(tmap_bwt_int_t);
+  if(0 != (bwt->occ_interval % 2)) {
+      tmap_error("BWT interval not supported", Exit, OutOfRange);
+  }
+
+  if(0 < bwt->hash_width) {
+	  // allocate memory
+	  bwt->hash_k = tmap_calloc(bwt->hash_width, sizeof(tmap_bwt_int_t*), "bwt->hash_k");
+	  bwt->hash_l = tmap_calloc(bwt->hash_width, sizeof(tmap_bwt_int_t*), "bwt->hash_l");
+
+	  // variable length data
+	  bwt->bwt = (uint32_t*)buf; buf += bwt->bwt_size*sizeof(uint32_t);
+	  for(i=1;i<=bwt->hash_width;i++) {
+		  uint64_t hash_length = tmap_bwt_get_hash_length(i);
+		  bwt->hash_k[i-1] = (tmap_bwt_int_t*)buf; buf += hash_length*sizeof(tmap_bwt_int_t);
+		  bwt->hash_l[i-1] = (tmap_bwt_int_t*)buf; buf += hash_length*sizeof(tmap_bwt_int_t);
+	  }
+  }
+  tmap_bwt_gen_cnt_table(bwt);
+  free(fn_bwt);
+
+  tmap_bwt_update_optimizations(bwt);
+  return bwt;
+}
+
+tmap_bwt_t *
 tmap_bwt_mm_unpack(uint8_t *buf)
 {
   tmap_bwt_t *bwt = NULL;
@@ -363,6 +472,7 @@ tmap_bwt_shm_unpack(uint8_t *buf)
   }
 
   bwt->is_shm = 1;
+  bwt->is_mm  = 0;
   
   tmap_bwt_update_optimizations(bwt);
 
@@ -374,7 +484,7 @@ tmap_bwt_destroy(tmap_bwt_t *bwt)
 {
   uint32_t i;
   if(bwt == NULL) return;
-  if(1 == bwt->is_shm) {
+  if(1 == bwt->is_shm || 1 == bwt->is_mm) {
       free(bwt->hash_k);
       free(bwt->hash_l);
       free(bwt);

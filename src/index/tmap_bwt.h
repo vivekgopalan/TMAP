@@ -88,6 +88,14 @@ tmap_bwt_t *
 tmap_bwt_read(const char *fn_fasta);
 
 /*! 
+  Read BWT data structure from Memory mapped file
+  @param  fn_fasta  the FASTA file name
+  @return           pointer to the bwt structure
+  */
+tmap_bwt_t *
+tmap_bwt_mm_read(const char *fn_fasta);
+
+/*!
   @param  fn_fasta  the FASTA file name
   @param  bwt       the bwt structure to write
   */

@@ -1921,6 +1921,9 @@ tmap_map_opt_check_global(tmap_map_opt_t *opt_a, tmap_map_opt_t *opt_b)
     if(opt_a->shm_key != opt_b->shm_key) {
         tmap_error("option -k was specified outside of the common options", Exit, CommandLineArgument);
     }
+    if(opt_a->mm != opt_b->mm) {
+        tmap_error("option --memory-map was specified outside of the common options", Exit, CommandLineArgument);
+    }
 #ifdef ENABLE_TMAP_DEBUG_FUNCTIONS
     if(opt_a->sample_reads != opt_b->sample_reads) {
         tmap_error("option -x was specified outside of the common options", Exit, CommandLineArgument);
@@ -2028,6 +2031,9 @@ tmap_map_opt_check(tmap_map_opt_t *opt)
   }
   else if(NULL != opt->fn_fasta && 0 < opt->shm_key) {
       tmap_error("option -f and option -k may not be specified together", Exit, CommandLineArgument);
+  }
+  else if(NULL != opt->fn_fasta && 1 == opt->mm) {
+      tmap_error("option --memory-map and option -f must be specified together", Exit, CommandLineArgument);
   }
   if(0 == opt->fn_reads_num && TMAP_READS_FORMAT_UNKNOWN == opt->reads_format) {
       tmap_error("option -r or option -i must be specified", Exit, CommandLineArgument);
