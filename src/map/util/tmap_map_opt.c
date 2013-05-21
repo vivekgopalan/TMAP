@@ -2032,7 +2032,7 @@ tmap_map_opt_check(tmap_map_opt_t *opt)
   else if(NULL != opt->fn_fasta && 0 < opt->shm_key) {
       tmap_error("option -f and option -k may not be specified together", Exit, CommandLineArgument);
   }
-  else if(NULL != opt->fn_fasta && 1 == opt->mm) {
+  else if(NULL == opt->fn_fasta && 1 == opt->mm) {
       tmap_error("option --memory-map and option -f must be specified together", Exit, CommandLineArgument);
   }
   if(0 == opt->fn_reads_num && TMAP_READS_FORMAT_UNKNOWN == opt->reads_format) {
