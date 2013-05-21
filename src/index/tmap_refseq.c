@@ -834,7 +834,7 @@ tmap_refseq_mm_read(const char *fn_fasta)
 
   // read seq file
   fn_pac = tmap_get_file_name(fn_fasta, TMAP_PAC_FILE);
-  int fd_pac = open(fn_anno, O_RDONLY);
+  int fd_pac = open(fn_pac, O_RDONLY);
   if (fd_pac == -1)
       tmap_error("Cannot open sequence file", Exit, ReadFileError);
 
